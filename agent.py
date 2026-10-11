@@ -18,9 +18,9 @@ import re
 
 import config
 import trace
-from tools import search_listings, suggest_outfit, create_fit_card
+from tools import suggest_outfit, create_fit_card
 from generate import generate, ModelUnavailable
-
+from mcp_client import call_tool
 
 # ── session state ─────────────────────────────────────────────────────────────
 
@@ -109,6 +109,14 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         than a stack trace. The import is already at the top of this file.
     """
     session = new_session(query, wardrobe)
+    try:
+        _loop(session)
+    except ModelUnavailable as exc:
+        session["error"] = str(exc)
+    return session
+
+
+def _loop(session: dict) -> None:
     next_step = "parse"
     count = 0
     while next_step != "done":
@@ -117,34 +125,51 @@ def run_agent(query: str, wardrobe: dict) -> dict:
 
         if next_step == "parse":
             session["parsed"] = _parse_query(session["query"])
+            trace.step("parse_query", inputs=session["query"],
+                       returned=str(session["parsed"]))
             next_step = "search"
 
         elif next_step == "search":
             parsed = session["parsed"]
-            session["search_results"] = search_listings(
-                parsed["description"], parsed["size"], parsed["max_price"],
-            )
+            results = call_tool("search_listings", {
+                    "description": parsed["description"],
+                    "size": parsed["size"],
+                    "max_price": parsed["max_price"],
+            })
+            session["search_results"] = results
             # THE BRANCH: nothing matched → explain what to change, and stop.
             if not session["search_results"]:
+                trace.step("search_listings (via MCP)", inputs=str(parsed),
+                           returned=results, note="branch: empty, stopping")
                 session["error"] = _no_results_message(session["parsed"])
+                trace.step("stop", returned=session["error"])
                 next_step = "done"
             else:
                 session["selected_item"] = session["search_results"][0]
+                trace.step("search_listings (via MCP)", inputs=str(parsed),
+                           returned=results,
+                           note=f"branch: results, selected {session['selected_item']['title']}")
                 next_step = "suggest"
 
         elif next_step == "suggest":
             session["outfit_suggestion"] = suggest_outfit(
                 session["selected_item"], session["wardrobe"],
             )
+            trace.step("suggest_outfit",
+                       inputs=f"item={session['selected_item']['title']!r}, "
+                              f"wardrobe={len(session['wardrobe'].get('items', []))} items",
+                       returned=session["outfit_suggestion"])
             next_step = "card"
 
         elif next_step == "card":
             session["fit_card"] = create_fit_card(
                 session["outfit_suggestion"], session["selected_item"],
             )
+            trace.step("create_fit_card",
+                       inputs=f"item={session['selected_item']['title']!r}, "
+                              f"outfit={session['outfit_suggestion']}",
+                       returned=session["fit_card"], note="done")
             next_step = "done"
-
-    return session
 
 
 # ── query parsing ─────────────────────────────────────────────────────────────
@@ -216,12 +241,26 @@ def _no_results_message(parsed: dict) -> str:
 
     hints = []
     if max_price is not None:
-        found = search_listings(desc, size, None)
+        found = call_tool("search_listings", {
+                    "description": parsed["description"],
+                    "size": parsed["size"],
+                    "max_price": None,
+            })
+        trace.step("search_listings (via MCP)",
+                   inputs=str({**parsed, "max_price": None}), returned=found,
+                   note="retry without price, to find which filter blocks")
         if found:
             cheapest = min(l["price"] for l in found)
             hints.append(f"raise your budget — the closest match starts at ${cheapest:g}")
     if size:
-        found = search_listings(desc, None, max_price)
+        found = call_tool("search_listings", {
+                    "description": parsed["description"],
+                    "size": None,
+                    "max_price": parsed["max_price"],
+            })
+        trace.step("search_listings (via MCP)",
+                   inputs=str({**parsed, "size": None}), returned=found,
+                   note="retry without size, to find which filter blocks")
         if found:
             sizes = sorted({str(l["size"]) for l in found})[:4]
             hints.append(f"try a different size — matches come in {', '.join(sizes)}")

@@ -288,14 +288,47 @@ that produced it:
 
 **Happy path**
 
-```
+`python app.py ask 'vintage graphic tee under $30, size M' --trace`
 
+```
+[1] parse_query
+      in:  vintage graphic tee under $30, size M
+      out: {'description': 'vintage graphic tee', 'size': 'M', 'max_price': 30.0}
+[2] search_listings (via MCP)
+      in:  {'description': 'vintage graphic tee', 'size': 'M', 'max_price': 30.0}
+      out: 8 items: Y2K Baby Tee — Butterfly Print, Vintage Knit Vest — Argyle Brown/Cream, Vintage Polo Shirt — Forest Green … +5 more
+      →    branch: results, selected Y2K Baby Tee — Butterfly Print
+[3] suggest_outfit
+      in:  item='Y2K Baby Tee — Butterfly Print', wardrobe=10 items
+      out: **Outfit 1:** Pair the Y2K Baby Tee with your baggy straight-leg jeans (add the brown leather belt), chunky wh…
+[4] create_fit_card
+      in:  item='Y2K Baby Tee — Butterfly Print', outfit=**Outfit 1:** Pair the Y2K Baby Tee with your baggy straight-leg…
+      out: Found the ultimate early 2000s butterfly tee on depop for just $18. I am totally obsessed with styling it over…
+      →    done
 ```
 
 **Empty search**
 
-```
+`python app.py ask 'designer ballgown size XXS under $5' --trace`
 
+```
+[1] parse_query
+      in:  designer ballgown size XXS under $5
+      out: {'description': 'designer ballgown', 'size': 'XXS', 'max_price': 5.0}
+[2] search_listings (via MCP)
+      in:  {'description': 'designer ballgown', 'size': 'XXS', 'max_price': 5.0}
+      out: [] (empty)
+      →    branch: empty, stopping
+[3] search_listings (via MCP)
+      in:  {'description': 'designer ballgown', 'size': 'XXS', 'max_price': None}
+      out: [] (empty)
+      →    retry without price, to find which filter blocks
+[4] search_listings (via MCP)
+      in:  {'description': 'designer ballgown', 'size': None, 'max_price': 5.0}
+      out: [] (empty)
+      →    retry without size, to find which filter blocks
+[5] stop
+      out: Nothing matched "designer ballgown", size XXS, under $5. You could use broader or different words than "design…
 ```
 
 **On the MCP move:** <!-- what changed in your code, and whether anything
