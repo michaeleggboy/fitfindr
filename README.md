@@ -356,15 +356,25 @@ Both listings are S/M (on the must-keep list) and under $25, and lst_002 is incl
 
 | # | Criterion | Target | Verdict | How I decided |
 |---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+| 1 | Matching query completes all three tools | 4 of 5 | MET (5/5) | All 5 tries reached `create_fit_card` with `session["error"]` still `None` and a non-empty `session["fit_card"]`. |
+| 2 | Impossible query stops before the second tool | 5 of 5 | MET (5/5) | All 5 traces end at `stop` with no `suggest_outfit` step, `fit_card` stays `None`, and the message names two changes (broader words, drop the size or price limit). |
+| 3 | Selected item `id` matches at every handoff | 5 of 5 | MET (5/5) | In all 5 tries, `search_results[0]["id"]`, `selected_item["id"]`, and the ids logged at `suggest_outfit` and `create_fit_card` were all `lst_007`. |
+| 4 | Fit card states price and platform in 2–4 sentences | 4 of 5 | MET (5/5) | All 5 cards for lst_002 contain `$18` and `depop` and run 3–4 sentences. I counted a trailing emoji as part of the last sentence, not a sentence of its own. |
+| 5 | "M or smaller" under $25 keeps the size range and budget | 4 of 5 | MET (5/5) as written. Revised version: MISSED (0/5) | All 5 parses were `{'size': 'M or smaller', 'max_price': 25.0}`, and every result was S/M and ≤ $25, including lst_002. That passes the rule as written. But all 5 also returned lst_017 (a mesh long-sleeve top), and the criterion itself calls lst_002 "the one listing that should match". See the revision in `criteria.md`. |
 
 **Diagnoses**
 
+Criteria 1–4 had no misses. Criterion 5 passed as written, but only because of a gap in what it checked, and closing that gap exposes a real miss.
 
+**Criterion 5 (revised): missed on 5 of 5. The failure is in a tool, `tools.py::search_listings`, not in the model.** The parse was right every time, and the size and price filters were right every time. The problem is keyword matching. `_score` counts a query word as a hit wherever it appears in the listing's title, description, tags, and other fields, and the search keeps anything scoring above 0. lst_017's description says *"Great for layering under a graphic tee"*, so the words "graphic" and "tee" match (score 2, against 11 for lst_002), and a mesh top comes back as a graphic tee. Because the search is plain Python, this happens identically on every try, which is why the miss is 5 of 5 rather than sometimes.
+
+**The pattern: one problem, visible in three criteria.** The same loose matching shows up in the criteria 1 and 4 runs too. `vintage graphic tee under $30` returned 10 items, including `Leather Belt — Brown, Braided` and `Bucket Hat — Reversible, Brown Plaid`, which match only on "vintage". Those criteria still passed because the results are sorted by score and the loop takes `search_results[0]`, so the real tee is always selected. The ranking hides the bad results, and nothing I measured looked past the first one. Any part of the agent that uses more than the top result (showing the user a list, or picking a second-best item) would surface it.
+
+**On targets I set too low.** Five out of five on every row means some targets weren't testing much:
+
+- **Criterion 4 is the one I'd tighten.** The prompt in `tools.py::create_fit_card` hands the model the exact price string, the platform, and "2 to 4 sentences", and the system prompt repeats it. Allowing a miss for "the model might round the price" gave too much room for an instruction that explicit. The target should be 5 of 5. It also only tests one item ($18, depop). Testing items with prices like $42.50 would check the formatting the target was worried about.
+- **Criterion 5's "one miss allowed" rested on parse randomness, but `_parse_query` runs at temperature 0.** The parse came back identical 5 of 5 times. The target should have been 5 of 5, like criteria 2 and 3.
+- **Criterion 3 measures less than it claims.** The trace logs `session["selected_item"]["id"]`, the same variable that gets passed to the tools, so the handoff check compares a value with itself. It would catch the wrong item being selected, but not the wrong variable being passed. Logging the id inside `suggest_outfit` and `create_fit_card` would make it a real check.
 
 ---
 

@@ -112,6 +112,19 @@ because the search side can't vary, so two misses would mean the parse prompt
 is unclear, not just random. Requiring `lst_002` keeps the agent from passing
 by dropping everything.
 
+> **Revised in unit 4:** Same query, same answer key, same price and `lst_002`
+> checks. Also: `session["search_results"]` contains no listing other than
+> `lst_002`, because it is the only graphic tee in `data/listings.json` that is
+> S, M, S/M, or M/L and $25.00 or less. At least 4 of 5 runs pass.
+>
+> **Why revised:** The original pass rule measured the wrong thing. It said
+> `lst_002` is "the one listing that should match", but it only checked size
+> and price, so it could not detect a listing that was the wrong *item*. In the
+> before run, all 5 tries also returned `lst_017` (Mesh Long-Sleeve Top), which
+> fits the size and budget but is not a graphic tee, and the original rule
+> scored every one of them PASS. The revised rule checks what the original
+> sentence already claimed. Scored against it, the before run is 0 of 5.
+
 ---
 
 <!-- ─────────────────────────────────────────────────────────────────────────
