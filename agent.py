@@ -148,7 +148,8 @@ def _loop(session: dict) -> None:
                 session["selected_item"] = session["search_results"][0]
                 trace.step("search_listings (via MCP)", inputs=str(parsed),
                            returned=results,
-                           note=f"branch: results, selected {session['selected_item']['title']}")
+                           note=f"branch: results, selected {session['selected_item']['id']} "
+                                f"{session['selected_item']['title']}")
                 next_step = "suggest"
 
         elif next_step == "suggest":
@@ -156,7 +157,7 @@ def _loop(session: dict) -> None:
                 session["selected_item"], session["wardrobe"],
             )
             trace.step("suggest_outfit",
-                       inputs=f"item={session['selected_item']['title']!r}, "
+                       inputs=f"item={session['selected_item']['id']} {session['selected_item']['title']!r}, "
                               f"wardrobe={len(session['wardrobe'].get('items', []))} items",
                        returned=session["outfit_suggestion"])
             next_step = "card"
@@ -166,7 +167,7 @@ def _loop(session: dict) -> None:
                 session["outfit_suggestion"], session["selected_item"],
             )
             trace.step("create_fit_card",
-                       inputs=f"item={session['selected_item']['title']!r}, "
+                       inputs=f"item={session['selected_item']['id']} {session['selected_item']['title']!r}, "
                               f"outfit={session['outfit_suggestion']}",
                        returned=session["fit_card"], note="done")
             next_step = "done"

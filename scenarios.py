@@ -35,18 +35,32 @@ SCENARIOS = [
         "wardrobe": "empty",
         "criterion": None,
     },
-    # TODO: add what your criteria 3, 4 and 5 need.
-    #
-    # Set "criterion" to the number in criteria.md that the scenario tests.
-    # "criterion": None means a diagnostic run — useful to have, but it isn't
-    # one of your five, and run_eval.py marks it as such in the table.
-    #
-    # For a state criterion, any normal query works — what you're checking is
-    # what ends up in the session, not what the user typed.
-    #
-    # For a fit-card criterion, you probably want the SAME query listed more
-    # than once, or several different items, depending on what your criterion
-    # actually says.
+    {
+        # A normal query. Criterion 3 — state. The check is on the session:
+        # the id passed to suggest_outfit and create_fit_card (in the trace)
+        # must equal selected_item["id"], which must equal search_results[0]["id"].
+        "name": "selected item carried through the session",
+        "query": "denim jacket under $50",
+        "wardrobe": "example",
+        "criterion": 3,
+    },
+    {
+        # The same query every try, so the five cards are for the same item:
+        # lst_002, $18 on depop. Criterion 4 — the card must state $18 and
+        # depop, in 2-4 sentences.
+        "name": "fit card states price and platform",
+        "query": "vintage graphic tee under $30, size M",
+        "wardrobe": "example",
+        "criterion": 4,
+    },
+    {
+        # Criterion 5 — the parse keeps "M or smaller" and the search keeps
+        # only listings that fit it, at $25 or less, including lst_002.
+        "name": "size range and budget respected",
+        "query": "graphic tee size M or smaller under $25",
+        "wardrobe": "example",
+        "criterion": 5,
+    },
 ]
 
 WARDROBES = ("example", "empty")

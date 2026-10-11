@@ -227,18 +227,112 @@ Couldn't write a fit card: there was no outfit suggestion to caption. Run sugges
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. Impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. Selected item `id` matches at every handoff | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card states price and platform in 2–4 sentences | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. "M or smaller" under $25 keeps the size range and budget | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+
+Produced by `python run_eval.py --label before` (5 tries per scenario, caching off, temperature 0.9). Full output: [results/run_2026-10-11_1846_before.md](results/run_2026-10-11_1846_before.md). The `empty wardrobe` scenario also ran as a diagnostic (not one of the five) and completed all 5 tries.
 
 **Real output from one try**, pasted as text, naming the file and function
 that produced it:
 
-```
+All from try 1 of the run above. The loop is `agent.py::run_agent`, the trace is printed by `trace.py::step`, and each scenario was run by `run_eval.py::run_once`.
+
+**1. Matching query completes all three tools.** Query `vintage graphic tee under $30`, from `agent.py::run_agent`:
 
 ```
+[1] parse_query
+      in:  vintage graphic tee under $30
+      out: {'description': 'vintage graphic tee', 'size': None, 'max_price': 30.0}
+[2] search_listings (via MCP)
+      in:  {'description': 'vintage graphic tee', 'size': None, 'max_price': 30.0}
+      out: 10 items: Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey, Y2K Baby Tee — Butterfly Print … +7 more
+      →    branch: results, selected lst_006 Graphic Tee — 2003 Tour Bootleg Style
+[3] suggest_outfit
+      in:  item=lst_006 'Graphic Tee — 2003 Tour Bootleg Style', wardrobe=10 items
+      out: **Outfit 1 (Grunge Streetwear):** Pair the Graphic Tee with your *Baggy straight-leg jeans, dark wash*. Tuck t…
+[4] create_fit_card
+      in:  item=lst_006 'Graphic Tee — 2003 Tour Bootleg Style', outfit=**Outfit 1 (Grunge Streetwear):** Pair the Graphi…
+      out: Just scored this 2003 tour bootleg graphic tee on depop and it has that *exact* perfectly worn-in softness you…
+      →    done
+
+session["fit_card"]:
+Just scored this 2003 tour bootleg graphic tee on depop and it has that *exact* perfectly worn-in softness you look forever for. I'm styling it for grunge streetwear with baggy dark wash jeans, combat boots, and a beat-up leather jacket. Such a steal for $24 🎸🖤
+```
+
+**2. Impossible query stops before the second tool.** Query `designer ballgown size XXS under $5`, from `agent.py::run_agent` (message written by `agent.py::_no_results_message`). There is no `suggest_outfit` step:
+
+```
+[1] parse_query
+      in:  designer ballgown size XXS under $5
+      out: {'description': 'designer ballgown', 'size': 'XXS', 'max_price': 5.0}
+[2] search_listings (via MCP)
+      in:  {'description': 'designer ballgown', 'size': 'XXS', 'max_price': 5.0}
+      out: [] (empty)
+      →    branch: empty, stopping
+[3] search_listings (via MCP)
+      in:  {'description': 'designer ballgown', 'size': 'XXS', 'max_price': None}
+      out: [] (empty)
+      →    retry without price, to find which filter blocks
+[4] search_listings (via MCP)
+      in:  {'description': 'designer ballgown', 'size': None, 'max_price': 5.0}
+      out: [] (empty)
+      →    retry without size, to find which filter blocks
+[5] stop
+      out: Nothing matched "designer ballgown", size XXS, under $5. You could use broader or different words than "design…
+
+session["error"]:
+Nothing matched "designer ballgown", size XXS, under $5. You could use broader or different words than "designer ballgown" (e.g. the item type alone, like "jacket" or "tee"), or drop the size or price limit.
+session["outfit_suggestion"]: None
+session["fit_card"]: None
+```
+
+**3. Selected item `id` matches at every handoff.** Query `denim jacket under $50`, from `agent.py::run_agent`:
+
+```
+[1] parse_query
+      in:  denim jacket under $50
+      out: {'description': 'denim jacket', 'size': None, 'max_price': 50.0}
+[2] search_listings (via MCP)
+      in:  {'description': 'denim jacket', 'size': None, 'max_price': 50.0}
+      out: 7 items: Denim Jacket — Light Wash, Cropped, High-Waisted Denim Shorts — Cutoff, Denim Vest — Medium Wash, Studded … +4 more
+      →    branch: results, selected lst_007 Denim Jacket — Light Wash, Cropped
+[3] suggest_outfit
+      in:  item=lst_007 'Denim Jacket — Light Wash, Cropped', wardrobe=10 items
+      out: **Outfit 1 (Denim-on-Denim Contrast):** Pair the new light wash denim jacket with your white ribbed tank top t…
+[4] create_fit_card
+      in:  item=lst_007 'Denim Jacket — Light Wash, Cropped', outfit=**Outfit 1 (Denim-on-Denim Contrast):** Pair the new…
+      out: Scored this cropped Wrangler denim jacket for just $42 on poshmark and I am obsessed with the vintage fit. It …
+      →    done
+
+session["search_results"][0]["id"]: lst_007
+session["selected_item"]["id"]:     lst_007
+id passed to suggest_outfit:        lst_007
+id passed to create_fit_card:       lst_007
+```
+
+**4. Fit card states price and platform in 2–4 sentences.** Query `vintage graphic tee under $30, size M` (selected lst_002, $18 on depop), from `tools.py::create_fit_card`:
+
+```
+Found the ultimate early 2000s butterfly baby tee for just $18 on depop. I am totally styling it for a soft grunge look tucked into wide-leg khaki trousers with a brown belt and chunky black combat boots. It gives off the best nostalgic pastel energy. 🦋
+```
+
+States `$18` and `depop`, in 3 sentences. All five cards are in the results file.
+
+**5. "M or smaller" under $25 keeps the size range and budget.** Query `graphic tee size M or smaller under $25`. The parse is from `agent.py::_parse_query` and the search is from `search_listings` (via MCP):
+
+```
+session["parsed"]:
+{'description': 'graphic tee', 'size': 'M or smaller', 'max_price': 25.0}
+
+session["search_results"]:
+lst_002  Y2K Baby Tee — Butterfly Print   size S/M  $18
+lst_017  Mesh Long-Sleeve Top — Black     size S/M  $15
+```
+
+Both listings are S/M (on the must-keep list) and under $25, and lst_002 is included.
 
 ---
 
