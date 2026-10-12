@@ -443,6 +443,7 @@ behaved differently afterwards. If the rewire didn't work, say exactly where it
 broke — the error text and the last thing that worked. That earns the point in
 full. -->
 
+`search_listings` is registered as an MCP tool in `mcp_server.py::search_listings`, which wraps the same `tools.py` function. In `agent.py`, the direct `search_listings(...)` calls (the main search and the two retry searches in `_no_results_message`) became `call_tool("search_listings", {...})` from `mcp_client.py`. The results didn't change. For the three scenario queries, the MCP call returned a list equal to the direct call's, with prices still floats and `[]` (not `None`) for the impossible query, so the loop's empty-list branch works as before. What did change is speed and setup. Each MCP call starts the server, so a search went from about 1 ms to 0.5–0.9 s, and the empty-search path, which searches three times, pays that three times. The first run also failed with `MCPError: Couldn't call 'search_listings' over MCP: No module named 'mcp'`, because the terminal was using another project's virtual environment. Running from this project's `.venv` (with `requirements.txt` installed) fixed it with no code change.
 
 
 ---
@@ -499,6 +500,14 @@ The parse was identical in both runs (`{'description': 'graphic tee', 'size': 'M
 <!-- For each criterion still missed: what you'd do, and why you stopped where
      you did. "I ran out of time" is fine if it's true. Pretending nothing is
      left is not. -->
+
+After the improvement no criterion is still missed: all five, and revised criterion 5, are MET in the after run. That doesn't mean nothing is broken. Three things are, and two of them get past my criteria because of how the criteria are written.
+
+**1. The search still returns items that aren't what was asked for.** `vintage graphic tee under $30` returns 10 results, including `Leather Belt — Brown, Braided` and `Bucket Hat — Reversible, Brown Plaid`. They're tagged `vintage`, so they pass the new title/tags/category rule. **What I'd do:** require a match on the *item type* in the query ("tee", "jacket") rather than on any keyword, for example by keeping only listings whose title or tags contain the query's last noun. **Why I stopped:** the unit asks for one change measured on its own, and this would have been a second change to the same function. Doing both would have made it impossible to tell which one moved revised criterion 5. No criterion catches this, because criteria 1 and 4 only look at the top result, and the loop always picks the correct one. A criterion like "no result for `vintage graphic tee` is outside the `tops` category" would catch it.
+
+**2. Criterion 4's target is too easy to tell me anything.** The `create_fit_card` prompt hands the model the exact price string, the platform, and the 2–4 sentence limit, and it got 10 of 10 across both runs, all on the same $18 depop item. **What I'd do:** raise the target to 5 of 5 and run it on items whose prices are harder to copy exactly, like a listing at $42.50 or one with a long platform name, which is where rounding or renaming would actually show up. **Why I stopped:** this is a change to the criterion, not a fix. Raising a target after seeing results isn't the kind of revision `criteria.md` allows. It belongs in next unit's criteria, written before the run.
+
+**3. Criterion 3's check compares a value with itself.** The trace logs `session["selected_item"]["id"]`, which is the same variable the loop passes to `suggest_outfit` and `create_fit_card`. So the "handoff" check would still pass if the code passed something else. **What I'd do:** log the id inside the tools, from the argument they actually received, and compare that to `session["selected_item"]`. **Why I stopped:** it's a measurement fix rather than an agent fix, and it changes the tools' code, so it would have been a second change in the same run.
 
 
 
