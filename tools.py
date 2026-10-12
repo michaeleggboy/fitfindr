@@ -74,6 +74,20 @@ def _score(keywords: set[str], listing: dict) -> int:
     return score
 
 
+_IDENTITY_FIELDS = ("title", "style_tags", "category")
+
+
+def _matches_identity(keywords: set[str], listing: dict) -> bool:
+    """True when a query keyword is in the title, style tags, or category."""
+    for field in _IDENTITY_FIELDS:
+        value = listing.get(field)
+        if isinstance(value, list):
+            value = " ".join(value)
+        if value and keywords & _tokens(str(value)):
+            return True
+    return False
+
+
 # ── Size matching (plain Python, no model call) ───────────────────────────────
 #
 # A size is read into (system, values): letter sizes become ranks on
@@ -203,7 +217,10 @@ def search_listings(
 
     keywords = _tokens(description or "")
     scored = [(_score(keywords, l), l) for l in listings]
-    scored = [(s, l) for s, l in scored if s > 0]
+    # A listing must match on what it *is* (title, tags, category), not only
+    # on a passing word in the seller's description — "great for layering
+    # under a graphic tee" doesn't make a mesh top a graphic tee.
+    scored = [(s, l) for s, l in scored if s > 0 and _matches_identity(keywords, l)]
 
     # An unreadable size request filters out everything rather than being
     # silently ignored — the loop handles an empty search.

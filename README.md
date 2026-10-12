@@ -232,6 +232,9 @@ Couldn't write a fit card: there was no outfit suggestion to caption. Run sugges
 | 3. Selected item `id` matches at every handoff | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 | 4. Fit card states price and platform in 2–4 sentences | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 | 5. "M or smaller" under $25 keeps the size range and budget | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5 (revised). …and lst_002 is the only listing returned | 4 of 5 | FAIL | FAIL | FAIL | FAIL | FAIL | MISSED (0/5) |
+
+The revised row is the same five tries scored against the revision in `criteria.md` (see Verdicts and Diagnoses). Every try also returned lst_017.
 
 Produced by `python run_eval.py --label before` (5 tries per scenario, caching off, temperature 0.9). Full output: [results/run_2026-10-11_1846_before.md](results/run_2026-10-11_1846_before.md). The `empty wardrobe` scenario also ran as a diagnostic (not one of the five) and completed all 5 tries.
 
@@ -451,25 +454,42 @@ full. -->
 
      `python run_eval.py --label after` -->
 
-**What I changed:**
+**What I changed:** One rule in `tools.py::search_listings`. A listing now counts as a match only if at least one query keyword is in its **title, style tags, or category** (new helper `tools.py::_matches_identity`). Before, any keyword anywhere, including a passing word in the seller's description, was enough. Scoring, ranking, and the size and price filters are unchanged. No prompt changed, and the loop didn't change.
 
-**Which failure it was meant to fix:**
+**Which failure it was meant to fix:** The revised criterion 5 miss (0/5). The diagnosis put it in the tool, not the model: lst_017 (Mesh Long-Sleeve Top) came back for "graphic tee" only because its description says *"Great for layering under a graphic tee"*. I tested the rule against all six scenario queries before running the full test, and the top result didn't change on any of them.
 
 ### Run Log — After
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. Impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. Selected item `id` matches at every handoff | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit card states price and platform in 2–4 sentences | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. "M or smaller" under $25 keeps the size range and budget | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5 (revised). …and lst_002 is the only listing returned | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
-**Did it help, and how do I know:**
+Produced by `python run_eval.py --label after` (same scenarios, 5 tries each, caching off, temperature 0.9). Full output: [results/run_2026-10-11_1859_after.md](results/run_2026-10-11_1859_after.md).
 
-<!-- If it made things worse, say that. Honestly reported, that earns full
-     credit and is more interesting than one that worked. -->
+**Did it help, and how do I know:** Yes, for the failure it targeted, and nothing else moved. Revised criterion 5 went from 0/5 to 5/5. Here is the search step from try 1 of each run, from `agent.py::run_agent` via `trace.py::step`:
 
+```
+BEFORE
+[2] search_listings (via MCP)
+      in:  {'description': 'graphic tee', 'size': 'M or smaller', 'max_price': 25.0}
+      out: 2 items: Y2K Baby Tee — Butterfly Print, Mesh Long-Sleeve Top — Black
+      →    branch: results, selected lst_002 Y2K Baby Tee — Butterfly Print
+
+AFTER
+[2] search_listings (via MCP)
+      in:  {'description': 'graphic tee', 'size': 'M or smaller', 'max_price': 25.0}
+      out: 1 items: Y2K Baby Tee — Butterfly Print
+      →    branch: results, selected lst_002 Y2K Baby Tee — Butterfly Print
+```
+
+The parse was identical in both runs (`{'description': 'graphic tee', 'size': 'M or smaller', 'max_price': 25.0}`, 5 of 5 each time), so the change in results comes from the search rule, not from the model. Criteria 1–4 stayed at 5/5, and the selected item was the same in every scenario (lst_006, lst_007, lst_002, lst_002). The result lists also got shorter in the other scenarios. The mesh top dropped out of `vintage graphic tee under $30, size M` (8 → 7 results), and `Shacket — Olive Canvas` dropped out of `denim jacket under $50` (7 → 6).
+
+**What it didn't fix:** `vintage graphic tee under $30` still returns 10 results, including `Leather Belt — Brown, Braided` and `Bucket Hat — Reversible, Brown Plaid`. They're tagged `vintage`, so they match on a tag, which the new rule accepts. Fixing that means asking the search to match the *item type* ("tee"), not just any keyword, which is a different change. I left it out to keep this to one change I could measure.
 
 
 ---
